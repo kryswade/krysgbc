@@ -1861,6 +1861,81 @@ if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     }).catch(function (e) { console.warn('SW registration failed', e); });
   });
 }
+
+<script>
+/* PWA STANDALONE AB SIMULATEINPUT FIX
+   In modalità standalone (PWA aggiunta a Home) iOS gira in WKWebView e gli eventi
+   KeyboardEvent sintetici NON raggiungono il core EmulatorJS: per questo A e B non
+   rispondevano solo da web app. Qui piloto direttamente l'input del core con
+   gameManager.simulateInput (indici libretro: B=0, A=8). Attivo SOLO in standalone
+   per evitare doppio input nel browser normale. */
+(function () {
+  try {
+    var IS_STANDALONE = (window.navigator.standalone === true) ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (!IS_STANDALONE) return;
+
+    var A_IDX = 8; // A
+    var B_IDX = 0; // B
+
+    function simReady() {
+      return !!(window.EJS_emulator && window.EJS_emulator.gameManager &&
+                typeof window.EJS_emulator.gameManager.simulateInput === 'function');
+    }
+    function simState(idx, val) {
+      try {
+        if (simReady()) window.EJS_emulator.gameManager.simulateInput(0, idx, val);
+      } catch (e) {}
+    }
+
+    function bindBtn(el, idx) {
+      if (!el || el.dataset.simBound === '1') return;
+      el.dataset.simBound = '1';
+      var down = function (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (x) {}
+        el.classList.add('isDown');
+        simState(idx, 1);
+      };
+      var up = function (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (x) {}
+        el.classList.remove('isDown');
+        simState(idx, 0);
+      };
+      el.addEventListener('touchstart', down, { passive: false });
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('touchend', up, { passive: false });
+      el.addEventListener('touchcancel', up, { passive: false });
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointerleave', up);
+    }
+
+    function findBtn(cls, txt) {
+      var el = document.querySelector('.' + cls);
+      if (el) return el;
+      var ab = document.querySelector('.ab') || document;
+      var cand = ab.querySelectorAll('button, .key');
+      for (var i = 0; i < cand.length; i++) {
+        if ((cand[i].textContent || '').trim() === txt) return cand[i];
+      }
+      return null;
+    }
+
+    var waited = 0;
+    var poll = setInterval(function () {
+      waited += 500;
+      if (simReady()) {
+        clearInterval(poll);
+        bindBtn(findBtn('btnA', 'A'), A_IDX);
+        bindBtn(findBtn('btnB', 'B'), B_IDX);
+      } else if (waited > 30000) {
+        clearInterval(poll);
+      }
+    }, 500);
+  } catch (e) {
+    console.warn('PWA standalone A/B fix skipped:', e);
+  }
+})();
+</script>
 </script>
 
 
