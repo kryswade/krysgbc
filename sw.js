@@ -1,9 +1,19 @@
-const CACHE_NAME = 'gbc-pwa-v2';
-const LOCAL_ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE_NAME = 'gbc-pwa-v3';
+const LOCAL_ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './game.gbc'
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((c) => c.addAll(LOCAL_ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((c) => c.addAll(LOCAL_ASSETS))
+      .then(() => self.skipWaiting())
+      .catch((err) => console.warn('precache failed', err))
   );
 });
 
@@ -20,6 +30,7 @@ self.addEventListener('fetch', (e) => {
   let url;
   try { url = new URL(req.url); } catch (err) { return; }
 
+  // Core EmulatorJS dal CDN: stale-while-revalidate (offline dopo il primo avvio)
   if (url.origin === 'https://cdn.emulatorjs.org') {
     e.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
@@ -34,6 +45,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  // Stessa origine (incluso game.gbc): cache-first con fallback rete
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((cached) => {
