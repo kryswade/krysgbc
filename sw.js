@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gbc-pwa-v1';
+const CACHE_NAME = 'gbc-pwa-v2';
 const LOCAL_ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -17,9 +17,9 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  const url = new URL(req.url);
+  let url;
+  try { url = new URL(req.url); } catch (err) { return; }
 
-  // Core EmulatorJS dal CDN: stale-while-revalidate (offline dopo il primo avvio)
   if (url.origin === 'https://cdn.emulatorjs.org') {
     e.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
@@ -34,7 +34,6 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Stessa origine: cache-first
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((cached) => {
